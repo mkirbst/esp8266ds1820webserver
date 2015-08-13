@@ -18,13 +18,13 @@
 
 OneWire ds(2);  // an pin 2
 
-const char* ssid     = "intranet";
-const char* password = "2499203400703253";
+const char* ssid     = "YOUR_WLAN_SSID";
+const char* password = "YOUR_WLAN_KEY";
  
 ESP8266WebServer server(80);
 
 void handle_root() {
-//////////////////////////////////////////////////////////////////////////////////////////////////1wire-code
+//onewire code: begin///////////////////////////////////////////////////////////////////////////////////////////
 while (1) {
   byte i;
   byte present = 0;
@@ -35,83 +35,62 @@ while (1) {
   String hc; //html content
     
   if ( !ds.search(addr)) {
-//    Serial.println("No more addresses.");
     hc += "<br/>No more addresses";
-//    Serial.println();
     ds.reset_search();
-    //delay(250);
-    //return;
     break;  // all sensors read, stop here and continue on webserver part
   }
-  
-  //Serial.print("ROM =");
+
   for( i = 0; i < 8; i++) {
-//    if (addr[i]<0x10) {Serial.print("0");}   //print trailing zeroes
     if (addr[i]<0x10) {hc += "0";}   //print trailing zeroes
-//    Serial.print(addr[i], HEX);
     hc += String(addr[i], HEX);
     if(i<7)
     {  
-//      Serial.write('-');  //separator between serial no. digits
       hc += '-';
     }
     else 
     {
-//      Serial.write(' ');  // no separator after last digit
       hc += ' ';
     }
-    
     hc.toUpperCase();     //print the serial with nicwe large characters instead of mixing small chars with numbers
   }
  
   if (OneWire::crc8(addr, 7) != addr[7]) {
-//      Serial.print("CRC-is-not-valid ");
       hc += "CRC-is-not-valid ";
       return;
   }
  
-  // the first ROM byte indicates which chip
   switch (addr[0]) {
     case 0x10:
-//      Serial.print("DS18S20 ");  // or old DS1820
       hc += "DS18S20 ";
       type_s = 1;
       break;
     case 0x28:
-//      Serial.print("DS18B20 ");
       hc += "DS18B20 ";
       type_s = 0;
       break;
     case 0x22:
-//      Serial.print("DS1822 ");
       hc += "DS1822 ";
       type_s = 0;
       break;
     default:
-//      Serial.print("Device-is-not-DS18x20-family ");
       hc += "Device-is-not-DS18x20-family ";
       return;
   } 
 
   ds.reset();
   ds.select(addr);
-  ds.write(0x44, 1);        // start conversion, with parasite power on at the end
+  ds.write(0x44, 1);          // start conversion, with parasite power on at the end
   
-  delay(1000);     // maybe 750ms is enough, maybe not
-  // we might do a ds.depower() here, but the reset will take care of it.
-  
+  delay(1000);                // maybe 750ms is enough, maybe not
+
   present = ds.reset();
   ds.select(addr);    
-  ds.write(0xBE);         // Read Scratchpad
+  ds.write(0xBE);             // Read Scratchpad
 
   for ( i = 0; i < 9; i++) {           // we need 9 bytes
     data[i] = ds.read();
   }
 
-  // Convert the data to actual temperature
-  // because the result is a 16 bit signed integer, it should
-  // be stored to an "int16_t" type, which is always 16 bits
-  // even when compiled on a 32 bit processor.
   int16_t raw = (data[1] << 8) | data[0];
   if (type_s) {
     raw = raw << 3; // 9 bit resolution default
@@ -128,51 +107,28 @@ while (1) {
     //// default is 12 bit resolution, 750 ms conversion time
   }
   celsius = (float)raw / 16.0;
-//  Serial.print(celsius);
-    
   hc += celsius;
-
-//  Serial.print (" ");
   hc += ' ';
  
-   //print CRC
-//  Serial.print(OneWire::crc8(data, 8), HEX);
+  //print CRC
   hc += (String(OneWire::crc8(data, 8), HEX));
   
   hc += "<br/>";
-  server.send(200, "text/html", hc); 
-
+  server.send(200, "text/html", hc); //send data to client
 }          
-//////////////////////////////////////////////////////////////////////////////////////////////////1wire-code-end
+//onewire code: end/////////////////////////////////////////////////////////////////////////////////
   delay(100);
 }
  
 void setup(void)
 {
-  // You can open the Arduino IDE Serial Monitor window to see what the code is doing
-//  Serial.begin(115200);  // Serial connection from ESP-01 via 3.3v console cable
-  //dht.begin();           // initialize temperature sensor
- 
-  // Connect to WiFi network
   WiFi.begin(ssid, password);
-//  Serial.print("\n\r \n\rWorking to connect");
- 
-  // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-//    Serial.print(".");
   }
-//  Serial.println("");
-//  Serial.println("DHT Weather Reading Server");
-//  Serial.print("Connected to ");
-//  Serial.println(ssid);
-//  Serial.print("IP address: ");
-//  Serial.println(WiFi.localIP());
-   
   server.on("/", handle_root);
   
   server.begin();
-//  Serial.println("HTTP server started");
 }
  
 void loop(void)
